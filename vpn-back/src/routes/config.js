@@ -1,33 +1,42 @@
 import express from "express";
-import crypto from "crypto";
 import { REGIONS } from "../data/regions.js";
+import { genWgKeypair } from "../lib/wgKeys.js";
+import { loadPrivateKey, execSsh } from "../lib/ssh.js";
+import { pickFreeIpFromDump } from "../lib/ipAlloc.js";
 
 const router = express.Router();
 
-function fakeKey() {
-  return crypto.randomBytes(32).toString("base64");
-}
+router.post("/", async (req, res) => {
+    try {
+        const { regionId } = req.body;
+        const region = REGIONS.find(r => r.id === regionId);
+        if (!region) return res.status(400).json({ error: "Invalid regionId" });
 
-function allocateFakeIp(regionId) {
-  const last = 10 + Math.floor(Math.random() * 240);
-  const base =
-    regionId === "in-mumbai" ? "10.66.10." :
-    regionId === "sg-singapore" ? "10.66.20." :
-    "10.66.30.";
-  return `${base}${last}`;
-}
+        const username = process.env.SSH_USER || "vpnctl";
+        const privateKey = loadPrivateKey();
+        const wgIface = process.env.WG_IFACE || "wg0";
 
-router.post("/", (req, res) => {
-  const { regionId } = req.body;
-  const region = REGIONS.find(r => r.id === regionId);
-  if (!region) return res.status(400).json({ error: "Invalid regionId" });
+        // 1) client keypair
+        const { priv, pub } = await genWgKeypair();
 
-  const clientPrivateKey = fakeKey();
-  const clientAddress = allocateFakeIp(regionId);
+        // 2) dump to allocate IP
+        const dump = await execSsh(
+            { host: region.host, username, privateKey },
+            `sudo /usr/local/bin/vpnctl-wg.sh dump`
+        );
 
-  const conf = `[Interface]
-PrivateKey = ${clientPrivateKey}
-Address = ${clientAddress}/32
+        const ip = pickFreeIpFromDump(region.baseIp, dump);
+
+        // 3) add peer
+        await execSsh(
+            { host: region.host, username, privateKey },
+            `sudo /usr/local/bin/vpnctl-wg.sh add-peer ${pub} ${ip}/32`
+        );
+
+        // 4) return config file
+        const conf = `[Interface]
+PrivateKey = ${priv}
+Address = ${ip}/32
 DNS = ${region.dns}
 
 [Peer]
@@ -37,9 +46,13 @@ AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 `;
 
-  res.setHeader("Content-Type", "text/plain");
-  res.setHeader("Content-Disposition", `attachment; filename="myvpn-${regionId}.conf"`);
-  res.send(conf);
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Content-Disposition", `attachment; filename="myvpn-${regionId}.conf"`);
+        res.send(conf);
+    } catch (e) {
+        console.error("CONFIG ERROR:", e);
+        res.status(500).json({ error: e.message, stack: e.stack });
+    }
 });
 
 export default router;

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import morgan from "morgan";
 
 import regionsRoute from "./routes/regions.js";
 import configRoute from "./routes/config.js";
@@ -8,6 +9,7 @@ import configRoute from "./routes/config.js";
 dotenv.config();
 
 const app = express();
+app.use(morgan("dev"));
 app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",").map(s => s.trim()) ?? "*" }));
 
