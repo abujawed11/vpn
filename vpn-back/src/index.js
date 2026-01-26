@@ -1,0 +1,20 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+
+import regionsRoute from "./routes/regions.js";
+import configRoute from "./routes/config.js";
+
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",").map(s => s.trim()) ?? "*" }));
+
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.use("/api/regions", regionsRoute);
+app.use("/api/config", configRoute);
+
+const port = process.env.PORT || 5050;
+app.listen(port, () => console.log(`vpn-back listening on :${port}`));
