@@ -5,6 +5,7 @@ import morgan from "morgan";
 
 import regionsRoute from "./routes/regions.js";
 import configRoute from "./routes/config.js";
+import authRoute from "./routes/auth.js";
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",").map(s => s.trim()) ??
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+app.use("/api/auth", authRoute);
 app.use("/api/regions", regionsRoute);
 app.use("/api/config", configRoute);
 

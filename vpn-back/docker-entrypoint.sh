@@ -9,4 +9,8 @@ if [ -f "${SSH_KEY_PATH:-}" ]; then
   export SSH_KEY_PATH=/root/.ssh/vpnctl_ed25519
 fi
 
+# Run database migrations
+echo "Running database migrations..."
+npx prisma migrate deploy
+
 exec "$@"

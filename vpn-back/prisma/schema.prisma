@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int         @id @default(autoincrement())
+  email     String      @unique
+  username  String      @unique
+  password  String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  configs   VpnConfig[]
+
+  @@map("users")
+}
+
+model VpnConfig {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  regionId   String
+  publicKey  String
+  privateKey String
+  ip         String
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, regionId])
+  @@map("vpn_configs")
+}

@@ -1,4 +1,23 @@
 services:
+  mysql:
+    image: mysql
+    container_name: vpn-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: vpn_db
+      MYSQL_USER: vpn_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-vpnpassword}
+    # ports:
+    #   - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   vpn-back:
     build:
       context: ./vpn-back
@@ -9,6 +28,13 @@ services:
     environment:
       SSH_KEY_PATH: /run/secrets/vpnctl_ed25519
       SSH_USER: vpnctl
+      DATABASE_URL: mysql://vpn_user:${MYSQL_PASSWORD:-vpnpassword}@mysql:3306/vpn_db
     volumes:
       - ./vpnctl_ed25519:/run/secrets/vpnctl_ed25519:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
 
