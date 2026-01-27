@@ -22,7 +22,7 @@ services:
     build:
       context: ./vpn-back
     ports:
-      - "5050:5050"
+      - "5060:5050"
     env_file:
       - ./vpn-back/.env
     environment:
