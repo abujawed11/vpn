@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const API = "http://localhost:5050";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
 export default function Login() {
   const [username, setUsername] = useState("");

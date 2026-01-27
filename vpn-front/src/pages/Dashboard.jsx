@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
-const API = "http://localhost:5050";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
 export default function Dashboard() {
   const [regions, setRegions] = useState([]);
   const [regionId, setRegionId] = useState("");
   const [loading, setLoading] = useState(false);
   const [myConfigs, setMyConfigs] = useState([]);
+  const [userPlan, setUserPlan] = useState("free");
+  const [maxRegions, setMaxRegions] = useState(2);
+  const [error, setError] = useState("");
 
   const { user, token, logout } = useAuth();
 
@@ -23,6 +26,10 @@ export default function Dashboard() {
 
     // Fetch user's configs
     fetchMyConfigs();
+
+    // Poll every 60 seconds for status updates
+    const interval = setInterval(fetchMyConfigs, 60000);
+    return () => clearInterval(interval);
   }, [token]);
 
   async function fetchMyConfigs() {
@@ -35,15 +42,19 @@ export default function Dashboard() {
       const data = await res.json();
       if (res.ok) {
         setMyConfigs(data.configs || []);
+        setUserPlan(data.plan || "free");
+        setMaxRegions(data.maxRegions || 2);
       }
     } catch (err) {
       console.error("Failed to fetch configs:", err);
     }
   }
 
-  async function downloadConfig() {
-    if (!regionId) return;
+  async function downloadConfig(selectedRegionId = regionId) {
+    if (!selectedRegionId) return;
     setLoading(true);
+    setError("");
+
     try {
       const res = await fetch(`${API}/api/config`, {
         method: "POST",
@@ -51,7 +62,7 @@ export default function Dashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ regionId }),
+        body: JSON.stringify({ regionId: selectedRegionId }),
       });
 
       if (!res.ok) {
@@ -64,7 +75,7 @@ export default function Dashboard() {
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = `myvpn-${regionId}.conf`;
+      a.download = `myvpn-${selectedRegionId}.conf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -74,9 +85,34 @@ export default function Dashboard() {
       // Refresh configs list
       fetchMyConfigs();
     } catch (e) {
-      alert(e.message);
+      setError(e.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function getStatusBadge(status) {
+    switch (status) {
+      case "pending":
+        return (
+          <span className="px-2 py-1 text-xs rounded bg-yellow-500/20 text-yellow-400">
+            Pending
+          </span>
+        );
+      case "active":
+        return (
+          <span className="px-2 py-1 text-xs rounded bg-green-500/20 text-green-400">
+            Active
+          </span>
+        );
+      case "expired":
+        return (
+          <span className="px-2 py-1 text-xs rounded bg-red-500/20 text-red-400">
+            Expired
+          </span>
+        );
+      default:
+        return null;
     }
   }
 
@@ -87,7 +123,12 @@ export default function Dashboard() {
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-white">VPN Dashboard</h1>
           <div className="flex items-center gap-4">
-            <span className="text-gray-400">Welcome, {user?.username}</span>
+            <span className="text-gray-400">
+              {user?.username}{" "}
+              <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 ml-1">
+                {userPlan}
+              </span>
+            </span>
             <button
               onClick={logout}
               className="text-red-400 hover:text-red-300 transition"
@@ -100,11 +141,25 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-2 rounded mb-6">
+            {error}
+          </div>
+        )}
+
         {/* Config Generator */}
         <div className="bg-gray-800 rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">
-            Generate VPN Config
-          </h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-white">
+              Generate VPN Config
+            </h2>
+            {userPlan === "free" && (
+              <span className="text-sm text-gray-400">
+                {myConfigs.length}/{maxRegions} regions used
+              </span>
+            )}
+          </div>
 
           <div className="flex gap-4 items-end">
             <div className="flex-1">
@@ -122,7 +177,7 @@ export default function Dashboard() {
               </select>
             </div>
             <button
-              onClick={downloadConfig}
+              onClick={() => downloadConfig()}
               disabled={loading || !regionId}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium py-2 px-6 rounded transition"
             >
@@ -132,37 +187,76 @@ export default function Dashboard() {
 
           <p className="text-gray-400 text-sm mt-4">
             Download the config file and import it into the WireGuard app.
+            Timer starts when you connect.
           </p>
         </div>
 
         {/* My Configs */}
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-lg font-semibold text-white mb-4">
-            My Active Configs
+            My Configs
           </h2>
 
           {myConfigs.length === 0 ? (
             <p className="text-gray-400">
-              No active configs yet. Generate one above.
+              No configs yet. Generate one above.
             </p>
           ) : (
             <div className="space-y-3">
               {myConfigs.map((config) => (
                 <div
                   key={config.id}
-                  className="flex justify-between items-center bg-gray-700 rounded px-4 py-3"
+                  className="bg-gray-700 rounded-lg p-4"
                 >
-                  <div>
-                    <span className="text-white font-medium">
-                      {config.regionName}
-                    </span>
-                    <span className="text-gray-400 text-sm ml-3">
-                      IP: {config.ip}
-                    </span>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium">
+                          {config.regionName}
+                        </span>
+                        {getStatusBadge(config.status)}
+                      </div>
+                      <span className="text-gray-400 text-sm">
+                        IP: {config.ip}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => downloadConfig(config.regionId)}
+                      disabled={loading}
+                      className="text-blue-400 hover:text-blue-300 text-sm transition"
+                    >
+                      Download
+                    </button>
                   </div>
-                  <span className="text-gray-400 text-sm">
-                    Created: {new Date(config.createdAt).toLocaleDateString()}
-                  </span>
+
+                  {/* Status Message */}
+                  <div className="mt-3 pt-3 border-t border-gray-600">
+                    {config.status === "pending" && (
+                      <p className="text-yellow-400 text-sm">
+                        Connect VPN to start timer
+                      </p>
+                    )}
+                    {config.status === "active" && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-600 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-green-500 h-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(100, (config.remainingMinutes / 5) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-green-400 text-sm font-medium">
+                          {config.remainingMinutes} min left
+                        </span>
+                      </div>
+                    )}
+                    {config.status === "expired" && (
+                      <p className="text-red-400 text-sm">
+                        Session expired. Generate a new config to continue.
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

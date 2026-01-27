@@ -12,6 +12,7 @@ model User {
   email     String      @unique
   username  String      @unique
   password  String
+  plan      String      @default("free") // free, paid
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   configs   VpnConfig[]
@@ -20,18 +21,20 @@ model User {
 }
 
 model VpnConfig {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  regionId   String
-  publicKey  String
-  privateKey String
-  ip         String
-  createdAt  DateTime  @default(now())
-  expiresAt  DateTime?
-  isActive   Boolean   @default(true)
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  regionId          String
+  publicKey         String    @db.VarChar(255)
+  privateKey        String    @db.VarChar(255)
+  ip                String
+  createdAt         DateTime  @default(now())
+  firstHandshakeAt  DateTime?
+  expiresAt         DateTime?
+  isActive          Boolean   @default(true)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, regionId])
+  @@index([publicKey])
   @@map("vpn_configs")
 }
