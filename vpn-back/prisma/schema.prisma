@@ -20,6 +20,22 @@ model User {
   @@map("users")
 }
 
+model Region {
+  id              String   @id @db.VarChar(50)
+  name            String   @db.VarChar(100)
+  host            String   @db.VarChar(100)
+  endpoint        String   @db.VarChar(100)
+  serverPublicKey String   @db.Text
+  baseIp          String   @db.VarChar(20)
+  dns             String   @default("1.1.1.1") @db.VarChar(50)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("regions")
+}
+
 model VpnConfig {
   id                Int       @id @default(autoincrement())
   userId            Int

@@ -1,5 +1,4 @@
 import express from "express";
-import { REGIONS } from "../data/regions.js";
 import { genWgKeypair } from "../lib/wgKeys.js";
 import { loadPrivateKey, execSsh } from "../lib/ssh.js";
 import { pickFreeIpFromDump } from "../lib/ipAlloc.js";
@@ -44,7 +43,10 @@ router.post("/", authenticateToken, async (req, res) => {
     const { regionId } = req.body;
     const userId = req.user.userId;
 
-    const region = REGIONS.find((r) => r.id === regionId);
+    // Load region from database
+    const region = await prisma.region.findUnique({
+      where: { id: regionId, isActive: true },
+    });
     if (!region) return res.status(400).json({ error: "Invalid regionId" });
 
     // Get user with plan info
@@ -192,14 +194,23 @@ router.get("/my-configs", authenticateToken, async (req, res) => {
       },
     });
 
+    // Load all active regions
+    const regions = await prisma.region.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+    });
+
+    const regionMap = Object.fromEntries(
+      regions.map(r => [r.id, r.name])
+    );
+
     // Enrich with region names and status
     const enrichedConfigs = configs.map((config) => {
-      const region = REGIONS.find((r) => r.id === config.regionId);
       const statusInfo = getConfigStatus(config);
 
       return {
         ...config,
-        regionName: region?.name || config.regionId,
+        regionName: regionMap[config.regionId] || config.regionId,
         ...statusInfo,
       };
     });

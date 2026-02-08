@@ -13,4 +13,12 @@ fi
 echo "Syncing database schema..."
 npx prisma db push --skip-generate
 
+# Run region migration (only if regions table is empty and migration script exists)
+if [ -f "/app/scripts/migrate-regions-to-db.js" ]; then
+  echo "Running region migration check..."
+  node /app/scripts/migrate-regions-to-db.js 2>&1 || echo "Migration completed or skipped"
+else
+  echo "Migration script not found, skipping..."
+fi
+
 exec "$@"
