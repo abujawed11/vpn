@@ -1,0 +1,124 @@
+How to Use for New Region:
+
+  Step 1: Upload script to EC2
+  scp -i your-key.pem scripts/wg-setup.sh ubuntu@<EC2-IP>:~/
+
+  Step 2: Run with custom BASE_IP
+  ssh -i your-key.pem ubuntu@<EC2-IP>
+
+  chmod +x wg-setup.sh
+
+  # For Canada region (use 10.40.0)
+  sudo ./wg-setup.sh 10.40.0
+
+  # For Tokyo region (use 10.30.0)
+  sudo ./wg-setup.sh 10.30.0
+
+  # For any other region (use 10.50.0, 10.60.0, etc.)
+  sudo ./wg-setup.sh 10.50.0
+
+  Step 3: Copy output to .env
+
+  The script will output something like:
+  ================================================
+  📋 COPY THESE VALUES TO YOUR .env FILE:
+  ================================================
+  REGION_XX_ID=<your-region-id>
+  REGION_XX_NAME=<Your Region Name>
+  REGION_XX_HOST=13.229.xxx.xxx
+  REGION_XX_ENDPOINT=13.229.xxx.xxx:51820
+  REGION_XX_SERVER_PUBLIC_KEY=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890ABCDEF=
+  REGION_XX_BASE_IP=10.40.0
+  ================================================
+
+  Just replace XX with your region prefix (CA, SG, US, etc.)!
+
+  Region BASE_IP Planning:
+  ┌───────────┬─────────┬───────────────────────┐
+  │  Region   │ BASE_IP │        Status         │
+  ├───────────┼─────────┼───────────────────────┤
+  │ Tokyo     │ 10.30.0 │ ✅ Existing           │
+  ├───────────┼─────────┼───────────────────────┤
+  │ Canada    │ 10.40.0 │ Use for new CA region │
+  ├───────────┼─────────┼───────────────────────┤
+  │ Singapore │ 10.50.0 │ Available             │
+  ├───────────┼─────────┼───────────────────────┤
+  │ US East   │ 10.60.0 │ Available             │
+  └───────────┴─────────┴───────────────────────┘
+  Important: Each region MUST have a unique BASE_IP to avoid IP conflicts!
+
+  Now there's no conflict between your script setup and .env configuration. 🎉
+
+
+
+  <your-region-id> is anything we can put??                                                                                                                                 
+                                            
+● Yes, you can put anything! The region ID is just a unique identifier string. However, there are best practices to follow:                                                                                                                                                                                                                             
+  ✅ Best Practices for Region IDs:                                                                                                                                            
+  1. Use lowercase with hyphens                                                                                                                                             
+  
+  ✅ ca-toronto
+  ✅ us-east-1
+  ✅ sg-singapore
+  ✅ in-mumbai
+
+  ❌ CA_Toronto (avoid uppercase/underscores)
+  ❌ ca toronto (no spaces)
+
+  2. Keep it short and descriptive
+
+  ✅ jp-tokyo
+  ✅ de-frankfurt
+  ✅ us-west
+
+  ❌ japan-tokyo-region-server-1 (too long)
+
+  3. Common naming patterns:
+  ┌────────────────┬───────────────────────────────────┐
+  │    Pattern     │             Examples              │
+  ├────────────────┼───────────────────────────────────┤
+  │ Country-City   │ us-newyork, ca-toronto, uk-london │
+  ├────────────────┼───────────────────────────────────┤
+  │ Country-Region │ us-east, us-west, eu-central      │
+  ├────────────────┼───────────────────────────────────┤
+  │ AWS-style      │ us-east-1, eu-west-2, ap-south-1  │
+  ├────────────────┼───────────────────────────────────┤
+  │ ISO Code       │ sg-singapore, jp-tokyo, in-mumbai │
+  └────────────────┴───────────────────────────────────┘
+  4. Make it unique
+
+  Each region ID must be different from all other regions.
+
+  Example for Your Canada Region:
+
+  # Good options:
+  REGION_CA_ID=ca-toronto
+  REGION_CA_ID=ca-central
+  REGION_CA_ID=canada-central
+  REGION_CA_ID=ca-east-1
+
+  # Pick whichever you prefer!
+
+  Technical Requirements:
+
+  Looking at your code, the region ID:
+  - ✅ Can be any string
+  - ✅ No length limit
+  - ✅ No special characters restrictions (but avoid spaces)
+  - ✅ Case-sensitive (but stick to lowercase for consistency)
+  - ✅ Used in API responses and frontend
+
+  My Recommendation:
+
+  Use the Country Code + City format for clarity:
+
+  REGION_CA_ID=ca-toronto
+  REGION_CA_NAME=Canada (Toronto)
+
+  REGION_SG_ID=sg-singapore
+  REGION_SG_NAME=Singapore
+
+  REGION_US_ID=us-virginia
+  REGION_US_NAME=USA (Virginia)
+
+  This is clear, consistent, and easy to understand! Just make sure whatever you choose matches between your .env file and regions.js.
