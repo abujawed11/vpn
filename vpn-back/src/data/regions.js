@@ -20,8 +20,8 @@ export const REGIONS = [
   },
   {
     id: process.env.REGION_DE_FRANKFURT_ID,
-    name: process.env.REGION_DE_FRANKFURT_HOST,
-    host: process.env.REGION_DE_FRANKFURT_NAME,
+    name: process.env.REGION_DE_FRANKFURT_NAME,
+    host: process.env.REGION_DE_FRANKFURT_HOST,
     endpoint: process.env.REGION_DE_FRANKFURT_ENDPOINT,
     serverPublicKey: process.env.REGION_DE_FRANKFURT_SERVER_PUBLIC_KEY,
     baseIp: process.env.REGION_DE_FRANKFURT_BASE_IP,
