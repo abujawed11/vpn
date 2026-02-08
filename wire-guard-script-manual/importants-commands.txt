@@ -1,0 +1,2 @@
+scp -i ~/.ssh/canada-key.pem ubuntu@35.183.23.201:/home/ubuntu/vpn-35-183-23-201.conf .
+cp ~/vpn-35-183-23-201.conf /mnt/d/aws
