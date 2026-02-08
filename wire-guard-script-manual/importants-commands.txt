@@ -1,2 +1,29 @@
 scp -i ~/.ssh/canada-key.pem ubuntu@35.183.23.201:/home/ubuntu/vpn-35-183-23-201.conf .
 cp ~/vpn-35-183-23-201.conf /mnt/d/aws
+
+
+### Kali Setup
+
+
+#copy files from local to kali
+scp -P 2222 D:\aws\vpn-*.conf kali@127.0.0.1:/home/kali/vpn-conf-files/
+
+#check files
+ls -l ~/vpn-conf-files
+
+#Move it into WireGuard
+sudo mv ~/vpn-conf-files/vpn-*.conf /etc/wireguard/wg0.conf
+sudo chmod 600 /etc/wireguard/wg0.conf
+
+#start vpn
+sudo wg-quick up wg0
+
+#check status
+sudo wg
+
+
+#stop vpn
+sudo wg-quick down wg0
+
+#check status
+sudo wg

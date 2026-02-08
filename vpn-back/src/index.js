@@ -12,8 +12,20 @@ dotenv.config();
 
 const app = express();
 app.use(morgan("dev"));
+
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN?.split(",").map(s => s.trim()) ?? "*",
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight requests
+
 app.use(express.json());
-app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",").map(s => s.trim()) ?? "*" }));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
