@@ -22,7 +22,33 @@ async function migrateRegions() {
 
   const regions = [];
 
-  // Tokyo region
+  // Canada region (REGION_CA_*)
+  if (process.env.REGION_CA_ID) {
+    regions.push({
+      id: process.env.REGION_CA_ID,
+      name: process.env.REGION_CA_NAME || 'Canada (Toronto)',
+      host: process.env.REGION_CA_HOST,
+      endpoint: process.env.REGION_CA_ENDPOINT,
+      serverPublicKey: process.env.REGION_CA_SERVER_PUBLIC_KEY,
+      baseIp: process.env.REGION_CA_BASE_IP,
+      dns: '1.1.1.1',
+    });
+  }
+
+  // Germany Frankfurt region (REGION_DE_FRANKFURT_*)
+  if (process.env.REGION_DE_FRANKFURT_ID) {
+    regions.push({
+      id: process.env.REGION_DE_FRANKFURT_ID,
+      name: process.env.REGION_DE_FRANKFURT_NAME || 'Germany (Frankfurt)',
+      host: process.env.REGION_DE_FRANKFURT_HOST,
+      endpoint: process.env.REGION_DE_FRANKFURT_ENDPOINT,
+      serverPublicKey: process.env.REGION_DE_FRANKFURT_SERVER_PUBLIC_KEY,
+      baseIp: process.env.REGION_DE_FRANKFURT_BASE_IP,
+      dns: '1.1.1.1',
+    });
+  }
+
+  // Tokyo region (REGION_TOKYO_*) - if uncommented
   if (process.env.REGION_TOKYO_ID) {
     regions.push({
       id: process.env.REGION_TOKYO_ID,
@@ -31,33 +57,20 @@ async function migrateRegions() {
       endpoint: process.env.REGION_TOKYO_ENDPOINT,
       serverPublicKey: process.env.REGION_TOKYO_SERVER_PUBLIC_KEY,
       baseIp: process.env.REGION_TOKYO_BASE_IP,
-      dns: process.env.DNS_DEFAULT || '1.1.1.1',
+      dns: '1.1.1.1',
     });
   }
 
-  // Canada region
-  if (process.env.REGION_CA_TORONTO_ID) {
-    regions.push({
-      id: process.env.REGION_CA_TORONTO_ID,
-      name: process.env.REGION_CA_TORONTO_NAME || 'Canada (Toronto)',
-      host: process.env.REGION_CA_TORONTO_HOST,
-      endpoint: process.env.REGION_CA_TORONTO_ENDPOINT,
-      serverPublicKey: process.env.REGION_CA_TORONTO_SERVER_PUBLIC_KEY,
-      baseIp: process.env.REGION_CA_TORONTO_BASE_IP,
-      dns: process.env.DNS_DEFAULT || '1.1.1.1',
-    });
-  }
-
-  // Germany region (if exists)
+  // Old Germany region (REGION_DE_*) - if uncommented
   if (process.env.REGION_DE_ID) {
     regions.push({
       id: process.env.REGION_DE_ID,
-      name: process.env.REGION_DE_NAME || 'Germany (Frankfurt)',
+      name: process.env.REGION_DE_NAME || 'Germany',
       host: process.env.REGION_DE_HOST,
       endpoint: process.env.REGION_DE_ENDPOINT,
       serverPublicKey: process.env.REGION_DE_SERVER_PUBLIC_KEY,
       baseIp: process.env.REGION_DE_BASE_IP,
-      dns: process.env.DNS_DEFAULT || '1.1.1.1',
+      dns: '1.1.1.1',
     });
   }
 
