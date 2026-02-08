@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useSocket } from "../hooks/useSocket";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
@@ -11,8 +12,31 @@ export default function Dashboard() {
   const [userPlan, setUserPlan] = useState("free");
   const [maxRegions, setMaxRegions] = useState(2);
   const [error, setError] = useState("");
+  const [wsConnected, setWsConnected] = useState(false);
 
   const { user, token, logout } = useAuth();
+
+  // WebSocket connection
+  useSocket(token, {
+    onConnect: () => {
+      console.log("WebSocket connected");
+      setWsConnected(true);
+    },
+    onDisconnect: () => {
+      console.log("WebSocket disconnected");
+      setWsConnected(false);
+    },
+    onTimerStarted: (data) => {
+      console.log("Timer started:", data);
+      // Refresh configs to get updated status
+      fetchMyConfigs();
+    },
+    onTimerExpired: (data) => {
+      console.log("Timer expired:", data);
+      // Refresh configs to show expired status
+      fetchMyConfigs();
+    },
+  });
 
   useEffect(() => {
     // Fetch regions
@@ -27,8 +51,8 @@ export default function Dashboard() {
     // Fetch user's configs
     fetchMyConfigs();
 
-    // Poll every 60 seconds for status updates
-    const interval = setInterval(fetchMyConfigs, 60000);
+    // Poll every 5 seconds for timer updates (less frequent now with WebSocket)
+    const interval = setInterval(fetchMyConfigs, 5000);
     return () => clearInterval(interval);
   }, [token]);
 
@@ -121,7 +145,20 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-white">VPN Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-white">VPN Dashboard</h1>
+            {/* WebSocket Status Indicator */}
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  wsConnected ? "bg-green-500" : "bg-red-500"
+                }`}
+              />
+              <span className="text-xs text-gray-400">
+                {wsConnected ? "Live" : "Offline"}
+              </span>
+            </div>
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-gray-400">
               {user?.username}{" "}

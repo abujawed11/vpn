@@ -61,6 +61,17 @@ router.post("/handshake", async (req, res) => {
 
     console.log(`Handshake tracked: ${publicKey.substring(0, 8)}... expires at ${expiresAt.toISOString()}`);
 
+    // Emit WebSocket event to user
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`user:${config.userId}`).emit("timer:started", {
+        configId: config.id,
+        regionId,
+        expiresAt: expiresAt.toISOString(),
+        sessionMinutes,
+      });
+    }
+
     res.json({
       message: "Handshake tracked",
       expiresAt: expiresAt.toISOString(),
@@ -125,19 +136,35 @@ router.post("/expired", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Mark config as inactive
-    await prisma.vpnConfig.updateMany({
+    // Find the config first to get userId
+    const expiredConfig = await prisma.vpnConfig.findFirst({
       where: {
         publicKey,
         regionId,
         isActive: true,
       },
-      data: {
-        isActive: false,
-      },
     });
 
-    console.log(`Config expired: ${publicKey.substring(0, 8)}... in ${regionId}`);
+    if (expiredConfig) {
+      // Mark config as inactive
+      await prisma.vpnConfig.update({
+        where: { id: expiredConfig.id },
+        data: {
+          isActive: false,
+        },
+      });
+
+      console.log(`Config expired: ${publicKey.substring(0, 8)}... in ${regionId}`);
+
+      // Emit WebSocket event to user
+      const io = req.app.get("io");
+      if (io) {
+        io.to(`user:${expiredConfig.userId}`).emit("timer:expired", {
+          configId: expiredConfig.id,
+          regionId,
+        });
+      }
+    }
 
     res.json({ message: "Config marked as expired" });
   } catch (err) {
