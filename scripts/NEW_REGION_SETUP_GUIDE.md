@@ -131,7 +131,7 @@ sudo ./setup-vpn-region.sh <BASE_IP> <REGION_ID> <BACKEND_URL> <WEBHOOK_SECRET>
 
 **Example:**
 ```bash
-sudo ./setup-vpn-region.sh 10.40.0 ca-toronto https://vpn.engageswap.in my-webhook-secret-123
+sudo ./setup-vpn-region.sh 10.40.0 ca-toronto https://vpn.engageswap.in your-webhook-secret
 ```
 
 **Parameters Explained:**
