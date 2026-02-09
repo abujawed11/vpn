@@ -15,7 +15,8 @@ export function execSsh({ host, username, privateKey, password }, command) {
 
     conn
       .on("ready", () => {
-        conn.exec(command, (err, stream) => {
+        console.log(`SSH connection established to ${host}`);
+        conn.exec(command, { pty: true }, (err, stream) => {
           if (err) {
             conn.end();
             return reject(err);
@@ -26,19 +27,33 @@ export function execSsh({ host, username, privateKey, password }, command) {
               if (code === 0) return resolve(stdout.trim());
               reject(new Error(`SSH failed (code=${code}): ${stderr || stdout}`));
             })
-            .on("data", (d) => (stdout += d.toString()))
-            .stderr.on("data", (d) => (stderr += d.toString()));
+            .on("data", (d) => {
+              const output = d.toString();
+              stdout += output;
+              // Log progress in real-time
+              process.stdout.write(output);
+            })
+            .stderr.on("data", (d) => {
+              const output = d.toString();
+              stderr += output;
+              process.stderr.write(output);
+            });
         });
       })
-      .on("error", reject)
+      .on("error", (err) => {
+        console.error(`SSH connection error: ${err.message}`);
+        reject(err);
+      })
       // accept hostkey for now (later we can pin it)
-      .connect({ 
-        host, 
-        username, 
-        privateKey, 
+      .connect({
+        host,
+        username,
+        privateKey,
         password,
         hostVerifier: () => true,
-        readyTimeout: 30000 // 30s timeout for slow setups
+        readyTimeout: 60000, // 60s timeout for initial connection
+        keepaliveInterval: 10000, // Send keepalive every 10s
+        keepaliveCountMax: 3
       });
   });
 }

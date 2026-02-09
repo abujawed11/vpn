@@ -49,13 +49,14 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
     console.log(`🚀 Starting automation for ${regionId} at ${host}...`);
 
     // 2. Prepare the command to upload and run
-    // We use a HEREDOC to write the script content to the remote server safely
+    // Use base64 encoding to safely transfer the script without heredoc issues
     const remoteScriptPath = "/tmp/setup-vpn.sh";
-    
+    const scriptBase64 = Buffer.from(scriptContent).toString('base64');
+
     const commands = [
-        `cat << 'EOF' > ${remoteScriptPath}\n${scriptContent}\nEOF`,
+        `echo '${scriptBase64}' | base64 -d > ${remoteScriptPath}`,
         `chmod +x ${remoteScriptPath}`,
-        `sudo ${remoteScriptPath} "${baseIp}" "${regionId}" "${backendUrl}" "${webhookSecret}"`,
+        `sudo bash ${remoteScriptPath} "${baseIp}" "${regionId}" "${backendUrl}" "${webhookSecret}"`,
         `rm ${remoteScriptPath}`
     ].join(" && ");
 

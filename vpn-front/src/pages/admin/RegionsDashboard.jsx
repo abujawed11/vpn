@@ -151,7 +151,7 @@ export default function RegionsDashboard() {
       baseIp: region.baseIp,
       dns: region.dns,
       isActive: region.isActive,
-      sshUser: "ubuntu",
+      sshUser: "root",
       sshPassword: "",
     });
     setShowModal(true);
@@ -174,7 +174,7 @@ export default function RegionsDashboard() {
       baseIp: "",
       dns: "1.1.1.1",
       isActive: true,
-      sshUser: "ubuntu",
+      sshUser: "root",
       sshPassword: "",
     });
   }
@@ -351,7 +351,7 @@ export default function RegionsDashboard() {
                                 required
                                 value={formData.sshUser}
                                 onChange={e => setFormData({...formData, sshUser: e.target.value})}
-                                placeholder="ubuntu or root"
+                                placeholder="root (default)"
                                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
                             />
                         </div>
