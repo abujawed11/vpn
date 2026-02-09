@@ -42,7 +42,15 @@ export function execSshStream({ host, username, privateKey, password }, command,
               // Stream each line to the callback
               if (onData) {
                 output.split('\n').forEach(line => {
-                  if (line.trim()) {
+                  const trimmed = line.trim();
+                  // Filter out noisy progress lines
+                  if (trimmed &&
+                      !trimmed.match(/^Reading package lists\.\.\. \d+%$/) &&
+                      !trimmed.match(/^Building dependency tree\.\.\. \d+%$/) &&
+                      !trimmed.match(/^Reading state information\.\.\. \d+%$/) &&
+                      !trimmed.match(/^\d+% \[/) &&
+                      trimmed !== '0% [Working]' &&
+                      trimmed !== '0% [Waiting for headers]') {
                     onData({ type: "log", message: line });
                   }
                 });

@@ -258,8 +258,33 @@ log_success "WireGuard config created"
 
 echo ""
 log_info "[8/10] Starting WireGuard..."
+
+# Stop existing WireGuard if running
+if systemctl is-active --quiet wg-quick@${WG_IFACE}; then
+    log_info "Stopping existing WireGuard service..."
+    systemctl stop wg-quick@${WG_IFACE} || true
+fi
+
+# Bring down existing interface if it exists
+if ip link show ${WG_IFACE} >/dev/null 2>&1; then
+    log_info "Removing existing ${WG_IFACE} interface..."
+    ip link delete ${WG_IFACE} 2>/dev/null || true
+fi
+
+# Enable and start WireGuard
+log_info "Starting WireGuard service..."
 systemctl enable wg-quick@${WG_IFACE}
-systemctl restart wg-quick@${WG_IFACE}
+systemctl start wg-quick@${WG_IFACE}
+
+# Check if it started successfully
+if ! systemctl is-active --quiet wg-quick@${WG_IFACE}; then
+    log_error "WireGuard service failed to start. Checking logs..."
+    systemctl status wg-quick@${WG_IFACE} --no-pager || true
+    journalctl -u wg-quick@${WG_IFACE} -n 20 --no-pager || true
+    log_error "Attempting to start manually for debugging..."
+    wg-quick up ${WG_IFACE} || true
+    exit 1
+fi
 
 log_info "Configuring firewall..."
 ufw allow ${WG_PORT}/udp 2>&1 | grep -v "Skipping" || true
@@ -272,7 +297,7 @@ sleep 2
 if wg show "$WG_IFACE" >/dev/null 2>&1; then
   log_success "WireGuard is running"
 else
-  log_error "WireGuard failed to start!"
+  log_error "WireGuard interface not found!"
   exit 1
 fi
 

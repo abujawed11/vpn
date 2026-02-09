@@ -81,12 +81,19 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
           });
         }
       }
-    ).then(() => {
+    ).then((output) => {
       console.log(`✅ Automation finished for ${regionId}`);
+
+      // Extract server public key from output if available
+      const pubkeyMatch = output.match(/Server Pubkey:\s+([A-Za-z0-9+/=]+)/);
+      const publicIpMatch = output.match(/Public IP:\s+([\d.]+)/);
+
       if (io) {
         io.to(`user:${userId}`).emit("setup:complete", {
-          message: "Setup completed successfully!",
-          regionId
+          message: `✅ Setup completed! Region ${regionId} is ready.`,
+          regionId,
+          serverPublicKey: pubkeyMatch ? pubkeyMatch[1] : null,
+          publicIp: publicIpMatch ? publicIpMatch[1] : null
         });
       }
     }).catch((err) => {
