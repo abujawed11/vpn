@@ -115,13 +115,30 @@ fi
 echo ""
 log_info "[1/10] Installing packages..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y >/dev/null 2>&1
-apt-get install -y wireguard wireguard-tools iptables ufw curl qrencode >/dev/null 2>&1
+
+# Wait for any existing apt processes to finish
+log_info "Waiting for apt locks to clear..."
+while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+    sleep 2
+done
+
+log_info "Running apt-get update..."
+apt-get update -y || {
+    log_warning "First apt-get update failed, retrying..."
+    sleep 5
+    apt-get update -y
+}
+
+log_info "Installing WireGuard and dependencies..."
+apt-get install -y wireguard wireguard-tools iptables ufw curl qrencode || {
+    log_error "Package installation failed"
+    exit 1
+}
 log_success "Packages installed"
 
 echo ""
 log_info "[2/10] Creating vpnctl user..."
-if id "vpnctl" &>/dev/null; then
+if id "vpnctl" >/dev/null 2>&1; then
     log_success "User vpnctl already exists"
 else
     useradd -m -s /bin/bash vpnctl
@@ -150,7 +167,7 @@ net.ipv4.conf.default.rp_filter=0
 net.ipv4.conf.${OUT_IFACE}.rp_filter=0
 net.ipv4.conf.${WG_IFACE}.rp_filter=0
 EOF
-sysctl --system >/dev/null 2>&1
+sysctl --system 2>&1 | grep -v "permission denied" || true
 log_success "IPv4 forwarding enabled"
 
 echo ""
@@ -241,13 +258,14 @@ log_success "WireGuard config created"
 
 echo ""
 log_info "[8/10] Starting WireGuard..."
-systemctl enable wg-quick@${WG_IFACE} >/dev/null 2>&1
+systemctl enable wg-quick@${WG_IFACE}
 systemctl restart wg-quick@${WG_IFACE}
 
-ufw allow ${WG_PORT}/udp >/dev/null 2>&1
-ufw allow OpenSSH >/dev/null 2>&1
-ufw --force enable >/dev/null 2>&1
-ufw reload >/dev/null 2>&1
+log_info "Configuring firewall..."
+ufw allow ${WG_PORT}/udp 2>&1 | grep -v "Skipping" || true
+ufw allow OpenSSH 2>&1 | grep -v "Skipping" || true
+ufw --force enable 2>&1 | grep -v "Skipping" || true
+ufw reload 2>&1 | grep -v "Skipping" || true
 
 sleep 2
 
@@ -407,8 +425,9 @@ StandardError=journal
 WantedBy=multi-user.target
 SERVICE
 
+log_info "Starting monitoring services..."
 systemctl daemon-reload
-systemctl enable wg-monitor wg-expiry >/dev/null 2>&1
+systemctl enable wg-monitor wg-expiry
 systemctl restart wg-monitor wg-expiry
 
 log_success "Monitoring services installed and started"

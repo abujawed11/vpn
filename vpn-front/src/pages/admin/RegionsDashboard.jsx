@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useSocket } from "../../hooks/useSocket";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
@@ -10,6 +11,11 @@ export default function RegionsDashboard() {
   const [error, setError] = useState("");
   const { token, logout, user } = useAuth();
   const navigate = useNavigate();
+
+  // Setup logs state
+  const [setupLogs, setSetupLogs] = useState([]);
+  const [setupInProgress, setSetupInProgress] = useState(false);
+  const logsEndRef = useRef(null);
 
   // Form state
   const [showModal, setShowModal] = useState(false);
@@ -27,6 +33,34 @@ export default function RegionsDashboard() {
     isActive: true,
     sshUser: "ubuntu",
     sshPassword: "",
+  });
+
+  // Socket.io for real-time setup logs
+  useSocket(token, {
+    onConnect: () => {
+      console.log("WebSocket connected (Admin)");
+    },
+    onDisconnect: () => {
+      console.log("WebSocket disconnected (Admin)");
+    },
+    onSetupLog: (data) => {
+      setSetupLogs(prev => [...prev, data]);
+      // Auto-scroll to bottom
+      setTimeout(() => logsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    },
+    onSetupComplete: (data) => {
+      setSetupLogs(prev => [...prev, { type: "success", message: "✅ " + data.message }]);
+      setSetupInProgress(false);
+      setTimeout(() => {
+        fetchRegions();
+        setShowModal(false);
+        setSetupLogs([]);
+      }, 2000);
+    },
+    onSetupError: (data) => {
+      setSetupLogs(prev => [...prev, { type: "error", message: "❌ " + data.message }]);
+      setSetupInProgress(false);
+    },
   });
 
   useEffect(() => {
@@ -108,7 +142,10 @@ export default function RegionsDashboard() {
 
   async function runAutomation() {
     setAutomationLoading(true);
+    setSetupInProgress(true);
+    setSetupLogs([]);
     setError("");
+
     try {
         const res = await fetch(`${API}/api/setup/run-automation`, {
             method: "POST",
@@ -128,12 +165,11 @@ export default function RegionsDashboard() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Automation failed");
 
-        alert("Automation completed successfully! Region registered.");
-        setShowModal(false);
-        resetForm();
-        fetchRegions();
+        // Setup started - logs will come via WebSocket
+        setSetupLogs([{ type: "info", message: "📡 Setup started. Connecting to server..." }]);
     } catch (err) {
         setError(err.message);
+        setSetupInProgress(false);
     } finally {
         setAutomationLoading(false);
     }
@@ -481,29 +517,68 @@ export default function RegionsDashboard() {
                 </>
               )}
 
+              {/* Live Logs Terminal */}
+              {setupLogs.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-gray-300">Setup Logs</h4>
+                    {setupInProgress && (
+                      <div className="flex items-center gap-2 text-xs text-blue-400">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                        Running...
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-gray-900 rounded border border-gray-700 p-4 font-mono text-xs max-h-96 overflow-y-auto">
+                    {setupLogs.map((log, idx) => (
+                      <div
+                        key={idx}
+                        className={`mb-1 ${
+                          log.type === "error"
+                            ? "text-red-400"
+                            : log.type === "success"
+                            ? "text-green-400"
+                            : log.type === "info"
+                            ? "text-blue-400"
+                            : "text-gray-300"
+                        }`}
+                      >
+                        {log.message}
+                      </div>
+                    ))}
+                    <div ref={logsEndRef} />
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 justify-end mt-6 pt-4 border-t border-gray-700">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  disabled={automationLoading}
-                  className="px-4 py-2 text-gray-300 hover:text-white transition"
+                  onClick={() => {
+                    setShowModal(false);
+                    setSetupLogs([]);
+                  }}
+                  disabled={automationLoading || setupInProgress}
+                  className="px-4 py-2 text-gray-300 hover:text-white transition disabled:opacity-50"
                 >
-                  Cancel
+                  {setupInProgress ? "Close" : "Cancel"}
                 </button>
-                <button
-                  type="submit"
-                  disabled={automationLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition flex items-center gap-2"
-                >
-                  {automationLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Setting up...
-                      </>
-                  ) : (
-                    editingRegion ? "Update Region" : (setupMode === 'automated' ? "Start Automation" : "Create Region")
-                  )}
-                </button>
+                {!setupInProgress && (
+                  <button
+                    type="submit"
+                    disabled={automationLoading}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {automationLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Starting...
+                        </>
+                    ) : (
+                      editingRegion ? "Update Region" : (setupMode === 'automated' ? "Start Automation" : "Create Region")
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>

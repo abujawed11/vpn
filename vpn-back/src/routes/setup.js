@@ -1,15 +1,16 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
-import { loadPrivateKey, execSsh } from "../lib/ssh.js";
+import { loadPrivateKey, execSsh, execSshStream } from "../lib/ssh.js";
 import { authenticateToken, isAdmin } from "../middleware/auth.js";
 import fs from "fs";
 import path from "path";
 
 const router = Router();
 
-// POST /run-automation - SSH and setup a new server
+// POST /run-automation - SSH and setup a new server (with real-time logs)
 router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
   const { host, username, password, baseIp, regionId } = req.body;
+  const userId = req.user.userId;
 
   if (!host || !username || !baseIp || !regionId) {
     return res.status(400).json({ error: "Missing required fields (host, username, baseIp, regionId)" });
@@ -26,21 +27,8 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
     const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
     const webhookSecret = process.env.WEBHOOK_SECRET;
 
-    // Define __dirname for ES modules
-    const __filename = new URL(import.meta.url).pathname;
-    const __dirname = path.dirname(__filename);
-
-    // 1. Read the setup script from the src/scripts folder
-    // Since this file is in src/routes, we go up one level to src, then to scripts
-    // Wait, import.meta.url returns file:///... so pathname might have leading slash issues on Windows?
-    // A safer way in Node 20+ / ES Modules:
-    
-    // Let's use process.cwd() as a reliable anchor if we assume standard structure
-    // Inside Docker /app is workdir. So /app/src/scripts/remote-install.sh
-    // Locally (if run from vpn-back): src/scripts/remote-install.sh
-    
     const scriptPath = path.resolve(process.cwd(), "src", "scripts", "remote-install.sh");
-    
+
     if (!fs.existsSync(scriptPath)) {
         throw new Error(`Setup script not found at ${scriptPath}`);
     }
@@ -48,8 +36,22 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
 
     console.log(`🚀 Starting automation for ${regionId} at ${host}...`);
 
-    // 2. Prepare the command to upload and run
-    // Use base64 encoding to safely transfer the script without heredoc issues
+    // Get Socket.io instance
+    const io = req.app.get("io");
+
+    // Return immediately - process will run in background
+    res.json({ success: true, message: "Setup started. Watch logs in real-time." });
+
+    // Emit initial log
+    if (io) {
+      io.to(`user:${userId}`).emit("setup:log", {
+        type: "info",
+        message: `🚀 Starting automation for ${regionId} at ${host}...`,
+        regionId
+      });
+    }
+
+    // Prepare the command to upload and run
     const remoteScriptPath = "/tmp/setup-vpn.sh";
     const scriptBase64 = Buffer.from(scriptContent).toString('base64');
 
@@ -60,11 +62,42 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
         `rm ${remoteScriptPath}`
     ].join(" && ");
 
-    // 3. Execute SSH (Wait for it to finish)
-    const output = await execSsh({ host, username, privateKey, password }, commands);
-
-    console.log(`✅ Automation finished for ${regionId}`);
-    res.json({ success: true, output });
+    // Execute SSH with streaming (in background)
+    execSshStream(
+      { host, username, privateKey, password },
+      commands,
+      // onData callback - emit logs in real-time
+      (data) => {
+        if (io) {
+          io.to(`user:${userId}`).emit("setup:log", { ...data, regionId });
+        }
+      },
+      // onError callback
+      (error) => {
+        if (io) {
+          io.to(`user:${userId}`).emit("setup:error", {
+            message: error.message,
+            regionId
+          });
+        }
+      }
+    ).then(() => {
+      console.log(`✅ Automation finished for ${regionId}`);
+      if (io) {
+        io.to(`user:${userId}`).emit("setup:complete", {
+          message: "Setup completed successfully!",
+          regionId
+        });
+      }
+    }).catch((err) => {
+      console.error("Automation error:", err);
+      if (io) {
+        io.to(`user:${userId}`).emit("setup:error", {
+          message: err.message,
+          regionId
+        });
+      }
+    });
 
   } catch (err) {
     console.error("Automation error:", err);

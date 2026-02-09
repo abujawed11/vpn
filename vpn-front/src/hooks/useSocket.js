@@ -43,6 +43,22 @@ export function useSocket(token, callbacks = {}) {
       callbacks.onTimerExpired?.(data);
     });
 
+    // Setup automation events
+    socket.on("setup:log", (data) => {
+      console.log("📝 Setup log:", data);
+      callbacks.onSetupLog?.(data);
+    });
+
+    socket.on("setup:complete", (data) => {
+      console.log("✅ Setup complete:", data);
+      callbacks.onSetupComplete?.(data);
+    });
+
+    socket.on("setup:error", (data) => {
+      console.error("❌ Setup error:", data);
+      callbacks.onSetupError?.(data);
+    });
+
     return () => {
       socket.disconnect();
     };
