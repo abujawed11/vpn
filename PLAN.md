@@ -239,3 +239,118 @@ When you start the new chat, you can say:
 > “We have a working multi-region WireGuard VPN with backend-generated configs. Let’s implement time-limited access starting from first handshake.”
 
 I’ll pick up **cleanly from there** 🚀
+
+
+
+#####
+
+
+ Alright! I've thoroughly explored your VPN codebase. Here's my analysis on whether you can add ad-blocking functionality:
+                                                                                                                                                                                         YES, You Can Definitely Add Ad-Blocking! 🎯
+                                                                                                                                                                                         Current Architecture Overview:                                                                                                                                                       
+                                                                                                                                                                                         - VPN Type: WireGuard-based VPN service                                                                                                                                                - Stack: React frontend + Node.js/Express backend + Socket.io                                                                                                                        
+  - Infrastructure: EC2 servers with dynamic peer management
+  - DNS: Currently using Cloudflare (1.1.1.1) for all users
+
+  Why Ad-Blocking is Feasible:
+
+  1. DNS-Based Ad-Blocking (Easiest & Most Effective)
+  Your WireGuard config already includes DNS settings (line 233 in vpn-back/src/routes/config.js):
+  DNS = ${region.dns}
+
+  This means you just need to:
+  - ✅ Replace the default DNS (1.1.1.1) with ad-blocking DNS servers
+  - ✅ Point to services like Pi-hole, AdGuard DNS, or NextDNS
+  - ✅ All DNS queries go through the VPN tunnel, so ads get blocked automatically
+
+  2. You Already Planned for This!
+  I found in your MONETIZATION_PLAN.md that you've already identified this as a premium feature:
+  - "DNS-Based Ad Blocking" (+$2/mo add-on)
+  - Implementation: "Configure custom DNS servers per user in WireGuard config"
+
+  Three Implementation Approaches:
+
+  Option 1: Use Existing Ad-Blocking DNS (Simplest)
+  - Change DNS to: 94.140.14.14 (AdGuard DNS)
+  - Or: 185.228.168.9 (CleanBrowsing)
+  - Pros: Zero server setup, instant, reliable
+  - Cons: No customization, shared service
+
+  Option 2: Deploy Pi-hole on Your VPN Servers (Recommended)
+  - Install Pi-hole on each EC2 region server
+  - Configure WireGuard DNS to point to local Pi-hole (10.40.0.1)
+  - Pros: Full control, custom blocklists, can be premium feature
+  - Cons: Needs installation on each server
+
+  Option 3: Centralized Ad-Blocking DNS Server
+  - Single Pi-hole/AdGuard instance
+  - All regions point to it
+  - Pros: Easier management, single blocklist
+  - Cons: Extra latency, single point of failure
+
+  What Needs to Change in Your Code:
+
+  Minimal changes needed:
+
+  1. Database level - vpn-back/prisma/schema.prisma:
+    - dns field already exists in Region model
+  2. Region configuration - Modify default DNS:
+  dns: "94.140.14.14" // AdGuard DNS instead of 1.1.1.1
+  3. Per-user DNS (Premium Feature):
+    - Add preferredDns field to User model
+    - Check user's DNS preference when generating config
+    - Offer "Standard DNS" vs "Ad-Blocking DNS" as toggle
+
+  Technical Considerations:
+
+  ✅ Works perfectly because:
+  - WireGuard's AllowedIPs = 0.0.0.0/0 routes ALL traffic through VPN
+  - DNS queries are part of that traffic
+  - Your config already specifies DNS server
+  - All DNS resolution happens through the VPN tunnel
+
+  ✅ No browser extension needed:
+  - DNS-level blocking works system-wide
+  - Blocks ads in ALL apps, not just browsers
+  - Works on mobile when using WireGuard
+
+  Limitations to Be Aware Of:
+
+  ⚠️ DNS-based ad-blocking can't block:
+  - Ads served from the same domain as content (YouTube, Facebook)
+  - Ads loaded over HTTPS from CDNs
+  - First-party ads
+
+  ✅ But it WILL block:
+  - 90%+ of banner ads
+  - Pop-ups and pop-unders
+  - Tracking scripts
+  - Malware domains
+  - Most ad networks (Google Ads, Taboola, etc.)
+
+  My Recommendation:
+
+  Phase 1 (Quick Win):
+  1. Add a toggle in dashboard: "Enable Ad-Blocking"
+  2. When enabled, use AdGuard DNS (94.140.14.14)
+  3. Make it a paid feature (+$2/month as you planned)
+  4. Users download new config with ad-blocking DNS
+
+  Phase 2 (Advanced):
+  1. Install Pi-hole on your VPN servers
+  2. Custom blocklists per region/plan
+  3. Show blocked queries count in dashboard
+  4. Let users add custom domain blocks
+
+  Summary:
+
+  ✅ Technically Feasible: Yes, very easy to implement
+  ✅ Current Architecture Supports It: No major changes needed
+  ✅ Already in Your Plans: You've identified this feature
+  ✅ Implementation Time: 1-2 hours for basic version
+  ✅ Value Add: Great premium feature, users will love it
+
+  Your infrastructure is perfectly suited for this feature. The DNS field is already in your database schema, your config generation already uses it, and WireGuard routes all traffic 
+  through the tunnel. You're basically one config change away from having ad-blocking! 🚀
+
+  Want me to help implement it when you're ready?
