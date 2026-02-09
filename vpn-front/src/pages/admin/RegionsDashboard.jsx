@@ -33,6 +33,7 @@ export default function RegionsDashboard() {
     isActive: true,
     sshUser: "ubuntu",
     sshPassword: "",
+    sshKeyFile: null,
   });
 
   // Socket.io for real-time setup logs
@@ -140,6 +141,18 @@ export default function RegionsDashboard() {
     }
   }
 
+  async function handleKeyFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Read file content
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFormData({ ...formData, sshKeyFile: event.target.result });
+    };
+    reader.readAsText(file);
+  }
+
   async function runAutomation() {
     setAutomationLoading(true);
     setSetupInProgress(true);
@@ -147,19 +160,27 @@ export default function RegionsDashboard() {
     setError("");
 
     try {
+        const payload = {
+            host: formData.host,
+            username: formData.sshUser,
+            baseIp: formData.baseIp,
+            regionId: formData.id
+        };
+
+        // Include password or SSH key
+        if (formData.sshPassword) {
+            payload.password = formData.sshPassword;
+        } else if (formData.sshKeyFile) {
+            payload.sshKey = formData.sshKeyFile;
+        }
+
         const res = await fetch(`${API}/api/setup/run-automation`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({
-                host: formData.host,
-                username: formData.sshUser,
-                password: formData.sshPassword,
-                baseIp: formData.baseIp,
-                regionId: formData.id
-            }),
+            body: JSON.stringify(payload),
         });
 
         const data = await res.json();
@@ -189,6 +210,7 @@ export default function RegionsDashboard() {
       isActive: region.isActive,
       sshUser: "root",
       sshPassword: "",
+      sshKeyFile: null,
     });
     setShowModal(true);
   }
@@ -212,6 +234,7 @@ export default function RegionsDashboard() {
       isActive: true,
       sshUser: "root",
       sshPassword: "",
+      sshKeyFile: null,
     });
   }
 
@@ -401,6 +424,21 @@ export default function RegionsDashboard() {
                                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
                             />
                         </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">SSH Key File (Optional)</label>
+                        <input
+                            type="file"
+                            accept=".pem,.key"
+                            onChange={handleKeyFileChange}
+                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Upload .pem file for EC2/AWS instances. Leave blank if using password or backend's default key.
+                        </p>
+                        {formData.sshKeyFile && (
+                            <p className="text-xs text-green-400 mt-1">✓ Key file loaded</p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm text-gray-400 mb-1">Base IP Subnet</label>

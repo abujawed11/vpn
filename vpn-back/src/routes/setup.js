@@ -9,7 +9,7 @@ const router = Router();
 
 // POST /run-automation - SSH and setup a new server (with real-time logs)
 router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
-  const { host, username, password, baseIp, regionId } = req.body;
+  const { host, username, password, sshKey, baseIp, regionId } = req.body;
   const userId = req.user.userId;
 
   if (!host || !username || !baseIp || !regionId) {
@@ -18,10 +18,21 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
 
   try {
     let privateKey = null;
-    try {
-        privateKey = loadPrivateKey();
-    } catch (e) {
-        if (!password) throw new Error("Neither SSH Key nor Password provided");
+
+    // Priority: uploaded key > backend key > password
+    if (sshKey) {
+      privateKey = sshKey; // Use uploaded key from request
+      console.log("Using uploaded SSH key");
+    } else {
+      try {
+        privateKey = loadPrivateKey(); // Try backend's default key
+        console.log("Using backend's default SSH key");
+      } catch (e) {
+        if (!password) {
+          throw new Error("No SSH key or password provided. Upload a .pem file or provide a password.");
+        }
+        console.log("Using password authentication");
+      }
     }
 
     const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
