@@ -44,12 +44,22 @@ router.post("/handshake", async (req, res) => {
       return res.json({ message: "Already tracked", expiresAt: config.expiresAt });
     }
 
-    // Calculate session duration based on user plan
-    const sessionMinutes = config.user.plan === "paid" ? 60 : FREE_SESSION_MINUTES;
+    // Calculate session duration
+    // Priority: customDuration > plan-based default
+    let sessionMinutes;
+    if (config.customDuration !== null && config.customDuration !== undefined) {
+      // Use custom duration set by admin (0 = unlimited)
+      sessionMinutes = config.customDuration === 0 ? null : config.customDuration;
+    } else {
+      // Use plan-based default
+      sessionMinutes = config.user.plan === "paid" ? 60 : FREE_SESSION_MINUTES;
+    }
 
     // Set first handshake and expiry time
     const handshakeTime = new Date(timestamp * 1000);
-    const expiresAt = new Date(handshakeTime.getTime() + sessionMinutes * 60 * 1000);
+    const expiresAt = sessionMinutes === null
+      ? null // null = unlimited session
+      : new Date(handshakeTime.getTime() + sessionMinutes * 60 * 1000);
 
     await prisma.vpnConfig.update({
       where: { id: config.id },

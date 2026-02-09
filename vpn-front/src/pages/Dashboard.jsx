@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [maxRegions, setMaxRegions] = useState(2);
   const [error, setError] = useState("");
   const [wsConnected, setWsConnected] = useState(false);
+  const [customDuration, setCustomDuration] = useState(null); // null = use plan default
 
   const { user, token, logout } = useAuth();
 
@@ -81,13 +82,20 @@ export default function Dashboard() {
     setError("");
 
     try {
+      const payload = { regionId: selectedRegionId };
+
+      // Add custom duration if admin has selected one
+      if (user?.role === 'admin' && customDuration !== null) {
+        payload.customDuration = customDuration;
+      }
+
       const res = await fetch(`${API}/api/config`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ regionId: selectedRegionId }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -237,28 +245,57 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block text-gray-300 mb-2">Select Region</label>
-              <select
-                value={regionId}
-                onChange={(e) => setRegionId(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+          <div className="space-y-4">
+            <div className="flex gap-4 items-end">
+              <div className="flex-1">
+                <label className="block text-gray-300 mb-2">Select Region</label>
+                <select
+                  value={regionId}
+                  onChange={(e) => setRegionId(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                >
+                  {regions.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {user?.role === 'admin' && (
+                <div className="flex-1">
+                  <label className="block text-gray-300 mb-2">Session Duration (Admin)</label>
+                  <select
+                    value={customDuration ?? ""}
+                    onChange={(e) => setCustomDuration(e.target.value === "" ? null : parseInt(e.target.value))}
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Default (5 min free / 60 min paid)</option>
+                    <option value="5">5 minutes</option>
+                    <option value="10">10 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="120">2 hours</option>
+                    <option value="300">5 hours</option>
+                    <option value="720">12 hours</option>
+                    <option value="1440">24 hours</option>
+                    <option value="0">Unlimited ♾️</option>
+                  </select>
+                </div>
+              )}
+              <button
+                onClick={() => downloadConfig()}
+                disabled={loading || !regionId}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium py-2 px-6 rounded transition"
               >
-                {regions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+                {loading ? "Generating..." : "Download Config"}
+              </button>
             </div>
-            <button
-              onClick={() => downloadConfig()}
-              disabled={loading || !regionId}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium py-2 px-6 rounded transition"
-            >
-              {loading ? "Generating..." : "Download Config"}
-            </button>
+            {user?.role === 'admin' && customDuration !== null && (
+              <p className="text-sm text-blue-400">
+                ⏱️ Custom duration: {customDuration === 0 ? "Unlimited" : `${customDuration} minutes`}
+              </p>
+            )}
           </div>
 
           <p className="text-gray-400 text-sm mt-4">

@@ -40,7 +40,7 @@ function getConfigStatus(config) {
 // Protected route - requires JWT
 router.post("/", authenticateToken, async (req, res) => {
   try {
-    const { regionId } = req.body;
+    const { regionId, customDuration } = req.body; // customDuration in minutes (admin only)
     const userId = req.user.userId;
 
     // Load region from database
@@ -129,6 +129,15 @@ router.post("/", authenticateToken, async (req, res) => {
     );
 
     // 4) Save config to database
+    // Get user info to check if admin
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    // Only admins can set custom duration
+    const durationToSet = (currentUser?.role === 'admin' && customDuration) ? customDuration : null;
+
     await prisma.vpnConfig.upsert({
       where: {
         userId_regionId: {
@@ -143,6 +152,7 @@ router.post("/", authenticateToken, async (req, res) => {
         isActive: true,
         firstHandshakeAt: null,
         expiresAt: null,
+        customDuration: durationToSet,
       },
       create: {
         userId,
@@ -150,6 +160,7 @@ router.post("/", authenticateToken, async (req, res) => {
         publicKey: pub,
         privateKey: priv,
         ip,
+        customDuration: durationToSet,
       },
     });
 

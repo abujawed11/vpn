@@ -48,6 +48,7 @@ model VpnConfig {
   firstHandshakeAt  DateTime?
   expiresAt         DateTime?
   isActive          Boolean   @default(true)
+  customDuration    Int?      @db.Int // Custom duration in minutes (admin only), null = use plan defaults
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
