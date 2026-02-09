@@ -18,15 +18,27 @@ function getConfigStatus(config) {
       status: "pending",
       remainingMinutes: null,
       message: "Connect VPN to start timer",
+      isUnlimited: config.customDuration === 0,
     };
   }
 
-  if (config.expiresAt && new Date(config.expiresAt) > now) {
+  // Check if unlimited session (expiresAt is null)
+  if (!config.expiresAt) {
+    return {
+      status: "active",
+      remainingMinutes: null,
+      message: "Unlimited session",
+      isUnlimited: true,
+    };
+  }
+
+  if (new Date(config.expiresAt) > now) {
     const remaining = Math.ceil((new Date(config.expiresAt) - now) / 60000);
     return {
       status: "active",
       remainingMinutes: remaining,
       message: `${remaining} min remaining`,
+      isUnlimited: false,
     };
   }
 
@@ -34,13 +46,14 @@ function getConfigStatus(config) {
     status: "expired",
     remainingMinutes: 0,
     message: "Expired",
+    isUnlimited: false,
   };
 }
 
 // Protected route - requires JWT
 router.post("/", authenticateToken, async (req, res) => {
   try {
-    const { regionId, customDuration } = req.body; // customDuration in minutes (admin only)
+    const { regionId, customDuration, adBlockEnabled } = req.body; // admin only features
     const userId = req.user.userId;
 
     // Load region from database
@@ -79,7 +92,8 @@ router.post("/", authenticateToken, async (req, res) => {
         const conf = generateConfigFile(
           existingConfig.privateKey,
           existingConfig.ip,
-          region
+          region,
+          existingConfig.adBlockEnabled
         );
 
         res.setHeader("Content-Type", "text/plain");
@@ -135,8 +149,9 @@ router.post("/", authenticateToken, async (req, res) => {
       select: { role: true },
     });
 
-    // Only admins can set custom duration
+    // Only admins can set custom duration and ad-blocking
     const durationToSet = (currentUser?.role === 'admin' && customDuration) ? customDuration : null;
+    const adBlockToSet = (currentUser?.role === 'admin' && adBlockEnabled) ? true : false;
 
     await prisma.vpnConfig.upsert({
       where: {
@@ -153,6 +168,7 @@ router.post("/", authenticateToken, async (req, res) => {
         firstHandshakeAt: null,
         expiresAt: null,
         customDuration: durationToSet,
+        adBlockEnabled: adBlockToSet,
       },
       create: {
         userId,
@@ -161,11 +177,12 @@ router.post("/", authenticateToken, async (req, res) => {
         privateKey: priv,
         ip,
         customDuration: durationToSet,
+        adBlockEnabled: adBlockToSet,
       },
     });
 
     // 5) return config file
-    const conf = generateConfigFile(priv, ip, region);
+    const conf = generateConfigFile(priv, ip, region, adBlockToSet);
 
     res.setHeader("Content-Type", "text/plain");
     res.setHeader(
@@ -202,6 +219,8 @@ router.get("/my-configs", authenticateToken, async (req, res) => {
         createdAt: true,
         firstHandshakeAt: true,
         expiresAt: true,
+        customDuration: true,
+        adBlockEnabled: true,
       },
     });
 
@@ -275,11 +294,14 @@ router.delete("/:regionId", authenticateToken, async (req, res) => {
   }
 });
 
-function generateConfigFile(privateKey, ip, region) {
+function generateConfigFile(privateKey, ip, region, adBlockEnabled = false) {
+  // Use AdGuard DNS for ad-blocking, otherwise use region's default DNS
+  const dns = adBlockEnabled ? '94.140.14.14' : region.dns;
+
   return `[Interface]
 PrivateKey = ${privateKey}
 Address = ${ip}/32
-DNS = ${region.dns}
+DNS = ${dns}
 
 [Peer]
 PublicKey = ${region.serverPublicKey}

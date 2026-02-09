@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [wsConnected, setWsConnected] = useState(false);
   const [customDuration, setCustomDuration] = useState(null); // null = use plan default
+  const [adBlockEnabled, setAdBlockEnabled] = useState(false); // admin only
 
   const { user, token, logout } = useAuth();
 
@@ -87,6 +88,11 @@ export default function Dashboard() {
       // Add custom duration if admin has selected one
       if (user?.role === 'admin' && customDuration !== null) {
         payload.customDuration = customDuration;
+      }
+
+      // Add ad-blocker setting if admin has enabled it
+      if (user?.role === 'admin' && adBlockEnabled) {
+        payload.adBlockEnabled = true;
       }
 
       const res = await fetch(`${API}/api/config`, {
@@ -296,6 +302,21 @@ export default function Dashboard() {
                 ⏱️ Custom duration: {customDuration === 0 ? "Unlimited" : `${customDuration} minutes`}
               </p>
             )}
+            {user?.role === 'admin' && (
+              <div className="flex items-center gap-3 p-3 bg-purple-500/10 border border-purple-500/30 rounded">
+                <input
+                  type="checkbox"
+                  id="adBlockToggle"
+                  checked={adBlockEnabled}
+                  onChange={(e) => setAdBlockEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="adBlockToggle" className="text-sm text-purple-300 cursor-pointer flex items-center gap-2">
+                  <span>🛡️ Enable Ad-Blocker</span>
+                  <span className="text-xs text-gray-400">(DNS-based blocking via AdGuard)</span>
+                </label>
+              </div>
+            )}
           </div>
 
           <p className="text-gray-400 text-sm mt-4">
@@ -323,11 +344,16 @@ export default function Dashboard() {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-white font-medium">
                           {config.regionName}
                         </span>
                         {getStatusBadge(config.status)}
+                        {config.adBlockEnabled && (
+                          <span className="px-2 py-1 text-xs rounded bg-purple-500/20 text-purple-400 flex items-center gap-1">
+                            🛡️ Ad-Block
+                          </span>
+                        )}
                       </div>
                       <span className="text-gray-400 text-sm">
                         IP: {config.ip}
@@ -359,19 +385,29 @@ export default function Dashboard() {
                       </p>
                     )}
                     {config.status === "active" && (
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-600 rounded-full h-2 overflow-hidden">
-                          <div
-                            className="bg-green-500 h-full transition-all duration-500"
-                            style={{
-                              width: `${Math.min(100, (config.remainingMinutes / 5) * 100)}%`,
-                            }}
-                          />
+                      config.isUnlimited ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-green-500/20 rounded p-2 text-center">
+                            <span className="text-green-400 text-sm font-medium">
+                              ♾️ Unlimited Session - Never Expires
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-green-400 text-sm font-medium">
-                          {config.remainingMinutes} min left
-                        </span>
-                      </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-600 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-green-500 h-full transition-all duration-500"
+                              style={{
+                                width: `${Math.min(100, (config.remainingMinutes / 5) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-green-400 text-sm font-medium">
+                            {config.remainingMinutes} min left
+                          </span>
+                        </div>
+                      )
                     )}
                     {config.status === "expired" && (
                       <p className="text-red-400 text-sm">
