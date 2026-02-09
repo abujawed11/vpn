@@ -226,6 +226,44 @@ router.get("/my-configs", authenticateToken, async (req, res) => {
   }
 });
 
+// DELETE /api/config/:regionId - Delete a user's config for a region
+router.delete("/:regionId", authenticateToken, async (req, res) => {
+  try {
+    const { regionId } = req.params;
+    const userId = req.user.userId;
+
+    // Find the config
+    const config = await prisma.vpnConfig.findUnique({
+      where: {
+        userId_regionId: {
+          userId,
+          regionId,
+        },
+      },
+    });
+
+    if (!config) {
+      return res.status(404).json({ error: "Config not found" });
+    }
+
+    // Delete from database
+    await prisma.vpnConfig.delete({
+      where: {
+        userId_regionId: {
+          userId,
+          regionId,
+        },
+      },
+    });
+
+    console.log(`Config deleted: user=${userId}, region=${regionId}`);
+    res.json({ success: true, message: "Config deleted successfully" });
+  } catch (e) {
+    console.error("DELETE CONFIG ERROR:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 function generateConfigFile(privateKey, ip, region) {
   return `[Interface]
 PrivateKey = ${privateKey}

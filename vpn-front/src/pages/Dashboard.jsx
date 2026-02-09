@@ -116,6 +116,36 @@ export default function Dashboard() {
     }
   }
 
+  async function deleteConfig(regionId, regionName) {
+    if (!confirm(`Delete config for ${regionName}? This cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`${API}/api/config/${regionId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete config");
+      }
+
+      // Refresh configs list
+      fetchMyConfigs();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function getStatusBadge(status) {
     switch (status) {
       case "pending":
@@ -266,13 +296,22 @@ export default function Dashboard() {
                         IP: {config.ip}
                       </span>
                     </div>
-                    <button
-                      onClick={() => downloadConfig(config.regionId)}
-                      disabled={loading}
-                      className="text-blue-400 hover:text-blue-300 text-sm transition"
-                    >
-                      Download
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => downloadConfig(config.regionId)}
+                        disabled={loading}
+                        className="text-blue-400 hover:text-blue-300 text-sm transition disabled:opacity-50"
+                      >
+                        Download
+                      </button>
+                      <button
+                        onClick={() => deleteConfig(config.regionId, config.regionName)}
+                        disabled={loading}
+                        className="text-red-400 hover:text-red-300 text-sm transition disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
 
                   {/* Status Message */}
