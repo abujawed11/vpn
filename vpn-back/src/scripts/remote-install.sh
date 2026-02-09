@@ -226,10 +226,22 @@ chmod 700 /etc/wireguard
 SERVER_KEY_FILE="/etc/wireguard/server.key"
 SERVER_PUB_FILE="/etc/wireguard/server.pub"
 
-if [[ -f "$SERVER_KEY_FILE" ]]; then
+# Check if keys exist AND are not empty
+if [[ -f "$SERVER_KEY_FILE" ]] && [[ -s "$SERVER_KEY_FILE" ]] && [[ -f "$SERVER_PUB_FILE" ]] && [[ -s "$SERVER_PUB_FILE" ]]; then
   log_warning "Server keys already exist, reusing them"
   SERVER_PRIV="$(cat "$SERVER_KEY_FILE")"
   SERVER_PUB="$(cat "$SERVER_PUB_FILE")"
+
+  # Verify keys are not empty
+  if [[ -z "$SERVER_PRIV" ]] || [[ -z "$SERVER_PUB" ]]; then
+    log_warning "Keys exist but are empty! Regenerating..."
+    rm -f "$SERVER_KEY_FILE" "$SERVER_PUB_FILE"
+    umask 077
+    wg genkey | tee "$SERVER_KEY_FILE" | wg pubkey > "$SERVER_PUB_FILE"
+    SERVER_PRIV="$(cat "$SERVER_KEY_FILE")"
+    SERVER_PUB="$(cat "$SERVER_PUB_FILE")"
+    log_success "Server keys regenerated"
+  fi
 else
   log_info "Generating new server keys..."
   umask 077
@@ -238,6 +250,14 @@ else
   SERVER_PUB="$(cat "$SERVER_PUB_FILE")"
   log_success "Server keys generated"
 fi
+
+# Final verification
+if [[ -z "$SERVER_PRIV" ]] || [[ -z "$SERVER_PUB" ]]; then
+  log_error "Failed to generate/load server keys!"
+  exit 1
+fi
+
+log_info "Server public key: ${SERVER_PUB}"
 
 # Create WireGuard config
 cat <<EOF >/etc/wireguard/${WG_IFACE}.conf
