@@ -503,12 +503,9 @@ fi
 echo ""
 log_info "[11/11] Registering region with backend..."
 
-REG_PAYLOAD="{"id":"${REGION_ID}","name":"${REGION_ID}","host":"${PUBLIC_IP}","endpoint":"${PUBLIC_IP}:${WG_PORT}","serverPublicKey":"${SERVER_PUB}","baseIp":"${BASE_IP}","secret":"${WEBHOOK_SECRET}"}"
+REG_PAYLOAD="{\"id\":\"${REGION_ID}\",\"name\":\"${REGION_ID}\",\"host\":\"${PUBLIC_IP}\",\"endpoint\":\"${PUBLIC_IP}:${WG_PORT}\",\"serverPublicKey\":\"${SERVER_PUB}\",\"baseIp\":\"${BASE_IP}\",\"secret\":\"${WEBHOOK_SECRET}\"}"
 
-REG_RESPONSE=$(curl -s -w "
-%{http_code}" -X POST "${BACKEND_URL}/api/setup/register-region" 
-    -H "Content-Type: application/json" 
-    -d "$REG_PAYLOAD")
+REG_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${BACKEND_URL}/api/setup/register-region" -H "Content-Type: application/json" -d "$REG_PAYLOAD")
 
 REG_HTTP_CODE=$(echo "$REG_RESPONSE" | tail -n1)
 REG_BODY=$(echo "$REG_RESPONSE" | head -n -1)
