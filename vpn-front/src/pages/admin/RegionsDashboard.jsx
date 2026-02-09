@@ -13,6 +13,8 @@ export default function RegionsDashboard() {
 
   // Form state
   const [showModal, setShowModal] = useState(false);
+  const [setupMode, setSetupMode] = useState("manual"); // manual or automated
+  const [automationLoading, setAutomationLoading] = useState(false);
   const [editingRegion, setEditingRegion] = useState(null);
   const [formData, setFormData] = useState({
     id: "",
@@ -23,6 +25,8 @@ export default function RegionsDashboard() {
     baseIp: "",
     dns: "1.1.1.1",
     isActive: true,
+    sshUser: "ubuntu",
+    sshPassword: "",
   });
 
   useEffect(() => {
@@ -69,6 +73,10 @@ export default function RegionsDashboard() {
     e.preventDefault();
     setError("");
 
+    if (setupMode === "automated" && !editingRegion) {
+        return runAutomation();
+    }
+
     try {
       const url = editingRegion 
         ? `${API}/api/admin/regions/${editingRegion.id}`
@@ -98,8 +106,42 @@ export default function RegionsDashboard() {
     }
   }
 
+  async function runAutomation() {
+    setAutomationLoading(true);
+    setError("");
+    try {
+        const res = await fetch(`${API}/api/setup/run-automation`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                host: formData.host,
+                username: formData.sshUser,
+                password: formData.sshPassword,
+                baseIp: formData.baseIp,
+                regionId: formData.id
+            }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Automation failed");
+
+        alert("Automation completed successfully! Region registered.");
+        setShowModal(false);
+        resetForm();
+        fetchRegions();
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setAutomationLoading(false);
+    }
+  }
+
   function openEditModal(region) {
     setEditingRegion(region);
+    setSetupMode("manual");
     setFormData({
       id: region.id,
       name: region.name,
@@ -109,12 +151,15 @@ export default function RegionsDashboard() {
       baseIp: region.baseIp,
       dns: region.dns,
       isActive: region.isActive,
+      sshUser: "ubuntu",
+      sshPassword: "",
     });
     setShowModal(true);
   }
 
   function openAddModal() {
     setEditingRegion(null);
+    setSetupMode("automated");
     resetForm();
     setShowModal(true);
   }
@@ -129,6 +174,8 @@ export default function RegionsDashboard() {
       baseIp: "",
       dns: "1.1.1.1",
       isActive: true,
+      sshUser: "ubuntu",
+      sshPassword: "",
     });
   }
 
@@ -170,7 +217,7 @@ export default function RegionsDashboard() {
             onClick={openAddModal}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition flex items-center gap-2"
           >
-            <span>+</span> Add Region
+            <span>+</span> Add / Setup Region
           </button>
         </div>
 
@@ -243,122 +290,219 @@ export default function RegionsDashboard() {
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 rounded-lg max-w-2xl w-full p-6 shadow-xl border border-gray-700 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">
-              {editingRegion ? "Edit Region" : "Add New Region"}
-            </h3>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold">
+                {editingRegion ? "Edit Region" : "Add New Region"}
+                </h3>
+                {!editingRegion && (
+                    <div className="flex bg-gray-700 p-1 rounded-lg">
+                        <button 
+                            onClick={() => setSetupMode("automated")}
+                            className={`px-3 py-1 rounded text-sm transition ${setupMode === 'automated' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+                        >
+                            Automated Setup
+                        </button>
+                        <button 
+                            onClick={() => setSetupMode("manual")}
+                            className={`px-3 py-1 rounded text-sm transition ${setupMode === 'manual' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+                        >
+                            Manual Add
+                        </button>
+                    </div>
+                )}
+            </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Region ID (Unique)</label>
-                  <input
-                    type="text"
-                    required
-                    disabled={!!editingRegion}
-                    value={formData.id}
-                    onChange={e => setFormData({...formData, id: e.target.value})}
-                    placeholder="e.g., sg-singapore"
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                  />
+              {setupMode === "automated" && !editingRegion ? (
+                // Automated Setup Fields
+                <div className="space-y-4">
+                    <p className="text-sm text-gray-400 bg-blue-500/10 border border-blue-500/20 p-3 rounded">
+                        This will SSH into your server, install WireGuard, setup monitoring, and register it in the DB.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-1">Host IP</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.host}
+                                onChange={e => setFormData({...formData, host: e.target.value})}
+                                placeholder="1.2.3.4"
+                                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-1">Region ID</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.id}
+                                onChange={e => setFormData({...formData, id: e.target.value})}
+                                placeholder="us-east-1"
+                                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-1">SSH Username</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.sshUser}
+                                onChange={e => setFormData({...formData, sshUser: e.target.value})}
+                                placeholder="ubuntu or root"
+                                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-1">SSH Password (Optional)</label>
+                            <input
+                                type="password"
+                                value={formData.sshPassword}
+                                onChange={e => setFormData({...formData, sshPassword: e.target.value})}
+                                placeholder="Leave blank to use SSH Key"
+                                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">Base IP Subnet</label>
+                        <input
+                            type="text"
+                            required
+                            value={formData.baseIp}
+                            onChange={e => setFormData({...formData, baseIp: e.target.value})}
+                            placeholder="10.80.0"
+                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                        />
+                    </div>
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Display Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                    placeholder="e.g., Singapore"
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
-                  />
+              ) : (
+                // Manual / Edit Fields
+                <>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                    <label className="block text-sm text-gray-400 mb-1">Region ID (Unique)</label>
+                    <input
+                        type="text"
+                        required
+                        disabled={!!editingRegion}
+                        value={formData.id}
+                        onChange={e => setFormData({...formData, id: e.target.value})}
+                        placeholder="e.g., sg-singapore"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    />
+                    </div>
+                    <div>
+                    <label className="block text-sm text-gray-400 mb-1">Display Name</label>
+                    <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        placeholder="e.g., Singapore"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                    />
+                    </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Host IP (SSH)</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.host}
-                    onChange={e => setFormData({...formData, host: e.target.value})}
-                    placeholder="e.g., 13.229.x.x"
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                    <label className="block text-sm text-gray-400 mb-1">Host IP (SSH)</label>
+                    <input
+                        type="text"
+                        required
+                        value={formData.host}
+                        onChange={e => setFormData({...formData, host: e.target.value})}
+                        placeholder="e.g., 13.229.x.x"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                    />
+                    </div>
+                    <div>
+                    <label className="block text-sm text-gray-400 mb-1">WireGuard Endpoint</label>
+                    <input
+                        type="text"
+                        required
+                        value={formData.endpoint}
+                        onChange={e => setFormData({...formData, endpoint: e.target.value})}
+                        placeholder="e.g., 13.229.x.x:51820"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                    />
+                    </div>
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">WireGuard Endpoint</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.endpoint}
-                    onChange={e => setFormData({...formData, endpoint: e.target.value})}
-                    placeholder="e.g., 13.229.x.x:51820"
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Server Public Key</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.serverPublicKey}
-                  onChange={e => setFormData({...formData, serverPublicKey: e.target.value})}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 font-mono text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Base IP (Private)</label>
-                  <input
+                    <label className="block text-sm text-gray-400 mb-1">Server Public Key</label>
+                    <input
                     type="text"
                     required
-                    value={formData.baseIp}
-                    onChange={e => setFormData({...formData, baseIp: e.target.value})}
-                    placeholder="e.g., 10.60.0"
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
-                  />
+                    value={formData.serverPublicKey}
+                    onChange={e => setFormData({...formData, serverPublicKey: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 font-mono text-sm"
+                    />
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">DNS Server</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.dns}
-                    onChange={e => setFormData({...formData, dns: e.target.value})}
-                    placeholder="1.1.1.1"
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={formData.isActive}
-                  onChange={e => setFormData({...formData, isActive: e.target.checked})}
-                  className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="isActive" className="text-gray-300">Region Active (Visible to users)</label>
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                    <label className="block text-sm text-gray-400 mb-1">Base IP (Private)</label>
+                    <input
+                        type="text"
+                        required
+                        value={formData.baseIp}
+                        onChange={e => setFormData({...formData, baseIp: e.target.value})}
+                        placeholder="e.g., 10.60.0"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                    />
+                    </div>
+                    <div>
+                    <label className="block text-sm text-gray-400 mb-1">DNS Server</label>
+                    <input
+                        type="text"
+                        required
+                        value={formData.dns}
+                        onChange={e => setFormData({...formData, dns: e.target.value})}
+                        placeholder="1.1.1.1"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                    />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-2">
+                    <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={formData.isActive}
+                    onChange={e => setFormData({...formData, isActive: e.target.checked})}
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="isActive" className="text-gray-300">Region Active (Visible to users)</label>
+                </div>
+                </>
+              )}
 
               <div className="flex gap-3 justify-end mt-6 pt-4 border-t border-gray-700">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
+                  disabled={automationLoading}
                   className="px-4 py-2 text-gray-300 hover:text-white transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition"
+                  disabled={automationLoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition flex items-center gap-2"
                 >
-                  {editingRegion ? "Update Region" : "Create Region"}
+                  {automationLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Setting up...
+                      </>
+                  ) : (
+                    editingRegion ? "Update Region" : (setupMode === 'automated' ? "Start Automation" : "Create Region")
+                  )}
                 </button>
               </div>
             </form>

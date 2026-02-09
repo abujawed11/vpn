@@ -7,7 +7,7 @@ export function loadPrivateKey() {
   return fs.readFileSync(p, "utf8");
 }
 
-export function execSsh({ host, username, privateKey }, command) {
+export function execSsh({ host, username, privateKey, password }, command) {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let stdout = "";
@@ -32,6 +32,13 @@ export function execSsh({ host, username, privateKey }, command) {
       })
       .on("error", reject)
       // accept hostkey for now (later we can pin it)
-      .connect({ host, username, privateKey, hostVerifier: () => true });
+      .connect({ 
+        host, 
+        username, 
+        privateKey, 
+        password,
+        hostVerifier: () => true,
+        readyTimeout: 30000 // 30s timeout for slow setups
+      });
   });
 }
