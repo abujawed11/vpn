@@ -354,10 +354,7 @@ while true; do
 
         log "New handshake detected for peer: \${pubkey:0:8}..."
 
-        response=\$(curl -s -w "
-%{http_code}" -X POST "\$BACKEND_URL" 
-            -H "Content-Type: application/json" 
-            -d "{"regionId":"\$REGION_ID","publicKey":"\$pubkey","timestamp":\$handshake,"secret":"\$WEBHOOK_SECRET"}")
+        response=\$(curl -s -w "\n%{http_code}" -X POST "\$BACKEND_URL" -H "Content-Type: application/json" -d "{\"regionId\":\"\$REGION_ID\",\"publicKey\":\"\$pubkey\",\"timestamp\":\$handshake,\"secret\":\"\$WEBHOOK_SECRET\"}")
 
         http_code=\$(echo "\$response" | tail -n1)
         body=\$(echo "\$response" | head -n -1)
@@ -394,10 +391,7 @@ log() {
 log "Starting WireGuard expiry handler for \$REGION_ID (\$WG_INTERFACE)"
 
 while true; do
-    response=\$(curl -s -w "
-%{http_code}" -X POST "\$CHECK_EXPIRY_URL" 
-        -H "Content-Type: application/json" 
-        -d "{"regionId":"\$REGION_ID","secret":"\$WEBHOOK_SECRET"}")
+    response=\$(curl -s -w "\n%{http_code}" -X POST "\$CHECK_EXPIRY_URL" -H "Content-Type: application/json" -d "{\"regionId\":\"\$REGION_ID\",\"secret\":\"\$WEBHOOK_SECRET\"}")
 
     http_code=\$(echo "\$response" | tail -n1)
     body=\$(echo "\$response" | head -n -1)
@@ -415,9 +409,7 @@ while true; do
                 if [ \$? -eq 0 ]; then
                     log "Peer removed successfully"
 
-                    curl -s -X POST "\$BACKEND_URL" 
-                        -H "Content-Type: application/json" 
-                        -d "{"regionId":"\$REGION_ID","publicKey":"\$pubkey","secret":"\$WEBHOOK_SECRET"}"
+                    curl -s -X POST "\$BACKEND_URL" -H "Content-Type: application/json" -d "{\"regionId\":\"\$REGION_ID\",\"publicKey\":\"\$pubkey\",\"secret\":\"\$WEBHOOK_SECRET\"}"
 
                     sed -i "/^\${pubkey}\$/d" "\$STATE_FILE" 2>/dev/null
                 else
