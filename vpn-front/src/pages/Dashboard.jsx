@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../hooks/useSocket";
+import { Link } from "react-router-dom";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
@@ -160,6 +161,14 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {user?.role === 'admin' && (
+              <Link
+                to="/admin/regions"
+                className="text-xs px-2 py-1 rounded bg-purple-600 hover:bg-purple-700 text-white transition font-medium"
+              >
+                Admin Panel
+              </Link>
+            )}
             <span className="text-gray-400">
               {user?.username}{" "}
               <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 ml-1">

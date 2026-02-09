@@ -122,3 +122,21 @@ How to Use for New Region:
   REGION_US_NAME=USA (Virginia)
 
   This is clear, consistent, and easy to understand! Just make sure whatever you choose matches between your .env file and regions.js.
+
+
+
+
+  ### Admin account
+
+
+  2. Create Admin Account
+  Run this command on your VPS to create the admin account with the credentials you requested:
+
+
+   1 docker exec -it vpn-vpn-back-1 node scripts/manage-admin.js create admin admin123
+
+  3. How to Change Admin Password Later
+  If you want to change the password in the future, use this command:
+
+
+   1 docker exec -it vpn-vpn-back-1 node scripts/manage-admin.js update admin new_password_here 

@@ -10,6 +10,8 @@ import regionsRoute from "./routes/regions.js";
 import configRoute from "./routes/config.js";
 import authRoute from "./routes/auth.js";
 import webhookRoute from "./routes/webhook.js";
+import adminRegionsRoute from "./routes/admin/regions.js";
+import { authenticateToken, isAdmin } from "./middleware/auth.js";
 
 dotenv.config();
 
@@ -76,6 +78,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/regions", regionsRoute);
 app.use("/api/config", configRoute);
 app.use("/api/webhook", webhookRoute);
+app.use("/api/admin/regions", authenticateToken, isAdmin, adminRegionsRoute);
 
 const port = process.env.PORT || 5050;
 httpServer.listen(port, () => console.log(`vpn-back listening on :${port} with WebSocket support`));
