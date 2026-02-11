@@ -150,7 +150,7 @@ router.post("/", authenticateToken, async (req, res) => {
     });
 
     // Only admins can set custom duration and ad-blocking
-    const durationToSet = (currentUser?.role === 'admin' && customDuration) ? customDuration : null;
+    const durationToSet = (currentUser?.role === 'admin' && typeof customDuration === 'number') ? customDuration : null;
     const adBlockToSet = (currentUser?.role === 'admin' && adBlockEnabled) ? true : false;
 
     await prisma.vpnConfig.upsert({
