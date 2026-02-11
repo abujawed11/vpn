@@ -92,20 +92,76 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
           });
         }
       }
-    ).then((output) => {
+    ).then(async (output) => {
       console.log(`✅ Automation finished for ${regionId}`);
 
       // Extract server public key from output if available
       const pubkeyMatch = output.match(/Server Pubkey:\s+([A-Za-z0-9+/=]+)/);
       const publicIpMatch = output.match(/Public IP:\s+([\d.]+)/);
 
-      if (io) {
-        io.to(`user:${userId}`).emit("setup:complete", {
-          message: `✅ Setup completed! Region ${regionId} is ready.`,
-          regionId,
-          serverPublicKey: pubkeyMatch ? pubkeyMatch[1] : null,
-          publicIp: publicIpMatch ? publicIpMatch[1] : null
-        });
+      const serverPublicKey = pubkeyMatch ? pubkeyMatch[1] : null;
+      const publicIp = publicIpMatch ? publicIpMatch[1] : null;
+
+      // Register region with backend (from admin panel, not from droplet)
+      if (serverPublicKey && publicIp) {
+        try {
+          const region = await prisma.region.upsert({
+            where: { id: regionId },
+            update: {
+              name: regionId,
+              host: publicIp,
+              endpoint: `${publicIp}:51820`,
+              serverPublicKey,
+              baseIp,
+              dns: "1.1.1.1",
+              isActive: true,
+            },
+            create: {
+              id: regionId,
+              name: regionId,
+              host: publicIp,
+              endpoint: `${publicIp}:51820`,
+              serverPublicKey,
+              baseIp,
+              dns: "1.1.1.1",
+              isActive: true,
+            },
+          });
+
+          console.log(`✅ Region '${regionId}' registered in database`);
+
+          if (io) {
+            io.to(`user:${userId}`).emit("setup:complete", {
+              message: `✅ Setup completed and region registered! ${regionId} is ready.`,
+              regionId,
+              serverPublicKey,
+              publicIp,
+              registered: true
+            });
+          }
+        } catch (regErr) {
+          console.error("Failed to register region:", regErr);
+          if (io) {
+            io.to(`user:${userId}`).emit("setup:complete", {
+              message: `✅ Setup completed but failed to register region. Please add manually.`,
+              regionId,
+              serverPublicKey,
+              publicIp,
+              registered: false,
+              error: regErr.message
+            });
+          }
+        }
+      } else {
+        if (io) {
+          io.to(`user:${userId}`).emit("setup:complete", {
+            message: `✅ Setup completed! Region ${regionId} is ready.`,
+            regionId,
+            serverPublicKey,
+            publicIp,
+            registered: false
+          });
+        }
       }
     }).catch((err) => {
       console.error("Automation error:", err);

@@ -493,24 +493,6 @@ else
 fi
 
 echo ""
-log_info "[11/11] Registering region with backend..."
-
-REG_PAYLOAD="{\"id\":\"${REGION_ID}\",\"name\":\"${REGION_ID}\",\"host\":\"${PUBLIC_IP}\",\"endpoint\":\"${PUBLIC_IP}:${WG_PORT}\",\"serverPublicKey\":\"${SERVER_PUB}\",\"baseIp\":\"${BASE_IP}\",\"secret\":\"${WEBHOOK_SECRET}\"}"
-
-REG_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${BACKEND_URL}/api/setup/register-region" -H "Content-Type: application/json" -d "$REG_PAYLOAD")
-
-REG_HTTP_CODE=$(echo "$REG_RESPONSE" | tail -n1)
-REG_BODY=$(echo "$REG_RESPONSE" | head -n -1)
-
-if [ "$REG_HTTP_CODE" = "201" ]; then
-    log_success "Region automatically registered in database! 🚀"
-else
-    log_warning "Failed to auto-register region (HTTP $REG_HTTP_CODE)"
-    log_warning "Response: $REG_BODY"
-    log_warning "Please add the region manually using the values below."
-fi
-
-echo ""
 echo "========================================"
 echo "   ✅ Setup Complete!"
 echo "========================================"
