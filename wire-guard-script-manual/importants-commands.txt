@@ -6,13 +6,13 @@ cp ~/vpn-35-183-23-201.conf /mnt/d/aws
 
 
 #copy files from local to kali
-scp -P 2222 D:\aws\vpn-*.conf kali@127.0.0.1:/home/kali/vpn-conf-files/
+scp -P 2222 D:\aws\myvpn-to-canada.conf kali@127.0.0.1:/home/kali/vpn-conf-files/
 
 #check files
 ls -l ~/vpn-conf-files
 
 #Move it into WireGuard
-sudo mv ~/vpn-conf-files/vpn-*.conf /etc/wireguard/wg0.conf
+sudo mv /home/kali/vpn-conf-files/vpn-canada-azure.conf /etc/wireguard/wg0.conf
 sudo chmod 600 /etc/wireguard/wg0.conf
 
 #start vpn
