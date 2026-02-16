@@ -3,9 +3,10 @@ cp ~/vpn-35-183-23-201.conf /mnt/d/aws
 
 
 ### Kali Setup
+ssh -p 2222 kali@127.0.0.1
+password: kali
 
-
-#copy files from local to kali
+#copy files from local to kali (run in windows)
 scp -P 2222 D:\aws\myvpn-to-canada.conf kali@127.0.0.1:/home/kali/vpn-conf-files/
 
 #check files
