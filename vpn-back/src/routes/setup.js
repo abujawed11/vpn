@@ -2,6 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { loadPrivateKey, execSsh, execSshStream } from "../lib/ssh.js";
 import { authenticateToken, isAdmin } from "../middleware/auth.js";
+import { processSSHKey } from "../lib/ppkConverter.js";
 import fs from "fs";
 import path from "path";
 
@@ -21,15 +22,16 @@ router.post("/run-automation", authenticateToken, isAdmin, async (req, res) => {
 
     // Priority: uploaded key > backend key > password
     if (sshKey) {
-      privateKey = sshKey; // Use uploaded key from request
-      console.log("Using uploaded SSH key");
+      // Process the uploaded key (convert from PPK if needed)
+      privateKey = await processSSHKey(sshKey);
+      console.log("Using uploaded SSH key (PPK converted if needed)");
     } else {
       try {
         privateKey = loadPrivateKey(); // Try backend's default key
         console.log("Using backend's default SSH key");
       } catch (e) {
         if (!password) {
-          throw new Error("No SSH key or password provided. Upload a .pem file or provide a password.");
+          throw new Error("No SSH key or password provided. Upload a .pem/.ppk file or provide a password.");
         }
         console.log("Using password authentication");
       }

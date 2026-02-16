@@ -429,12 +429,12 @@ export default function RegionsDashboard() {
                         <label className="block text-sm text-gray-400 mb-1">SSH Key File (Optional)</label>
                         <input
                             type="file"
-                            accept=".pem,.key"
+                            accept=".pem,.key,.ppk"
                             onChange={handleKeyFileChange}
                             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                            Upload .pem file for EC2/AWS instances. Leave blank if using password or backend's default key.
+                            Upload .pem, .key, or .ppk file. PPK files will be auto-converted. Leave blank if using password or backend's default key.
                         </p>
                         {formData.sshKeyFile && (
                             <p className="text-xs text-green-400 mt-1">✓ Key file loaded</p>
