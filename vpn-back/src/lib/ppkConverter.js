@@ -1,4 +1,4 @@
-import { convertPPK } from "ppk-to-openssh";
+import { parseFromString } from "ppk-to-openssh";
 
 /**
  * Detects if the key content is in PPK format
@@ -17,7 +17,7 @@ export function isPPKFormat(keyContent) {
  */
 export async function convertPPKToOpenSSH(ppkContent, passphrase = "") {
   try {
-    const result = await convertPPK(ppkContent, passphrase);
+    const result = await parseFromString(ppkContent, passphrase);
     return result.privateKey;
   } catch (error) {
     throw new Error(`PPK conversion failed: ${error.message}`);
