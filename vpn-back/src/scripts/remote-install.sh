@@ -123,10 +123,42 @@ while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/li
 done
 
 log_info "Running apt-get update..."
-apt-get update -y || {
-    log_warning "First apt-get update failed, retrying..."
-    sleep 5
-    apt-get update -y
+APT_UPDATE_OUTPUT=$(apt-get update 2>&1) && echo "$APT_UPDATE_OUTPUT" || {
+    echo "$APT_UPDATE_OUTPUT"
+    log_warning "apt-get update had errors, checking for broken repositories..."
+
+    # Extract broken repo URLs from the error output
+    BROKEN_REPOS=$(echo "$APT_UPDATE_OUTPUT" | grep "does not have a Release file" | grep -oP "(?<=The repository ').*(?=' does)")
+
+    if [[ -n "$BROKEN_REPOS" ]]; then
+        log_info "Found broken repositories, removing them..."
+        while IFS= read -r repo_url; do
+            log_warning "Removing broken repo: $repo_url"
+            # Search all source list files for this URL and remove the file
+            grep -rl "$repo_url" /etc/apt/sources.list.d/ 2>/dev/null | while read -r file; do
+                log_info "Removing file: $file"
+                rm -f "$file"
+            done
+            # Also check main sources.list and comment out the line
+            if grep -q "$repo_url" /etc/apt/sources.list 2>/dev/null; then
+                sed -i "\\|$repo_url|s|^|# DISABLED (no Release file): |" /etc/apt/sources.list
+                log_info "Commented out broken repo in /etc/apt/sources.list"
+            fi
+        done <<< "$BROKEN_REPOS"
+
+        log_info "Retrying apt-get update after removing broken repos..."
+        apt-get update -y || {
+            log_warning "apt-get update still has warnings, continuing anyway..."
+            true
+        }
+    else
+        log_warning "Could not identify broken repos, retrying anyway..."
+        sleep 5
+        apt-get update -y || {
+            log_warning "apt-get update still failing, continuing anyway..."
+            true
+        }
+    fi
 }
 
 log_info "Installing WireGuard and dependencies..."
