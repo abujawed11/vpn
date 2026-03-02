@@ -134,14 +134,16 @@ APT_UPDATE_OUTPUT=$(apt-get update 2>&1) && echo "$APT_UPDATE_OUTPUT" || {
         log_info "Found broken repositories, removing them..."
         while IFS= read -r repo_url; do
             log_warning "Removing broken repo: $repo_url"
+            # Extract just the base URL (strip distro/suite name appended by apt in error messages)
+            BASE_URL=$(echo "$repo_url" | awk '{print $1}')
             # Search all source list files for this URL and remove the file
-            grep -rl "$repo_url" /etc/apt/sources.list.d/ 2>/dev/null | while read -r file; do
+            while IFS= read -r file; do
                 log_info "Removing file: $file"
                 rm -f "$file"
-            done
+            done < <(grep -rl "$BASE_URL" /etc/apt/sources.list.d/ 2>/dev/null || true)
             # Also check main sources.list and comment out the line
-            if grep -q "$repo_url" /etc/apt/sources.list 2>/dev/null; then
-                sed -i "\\|$repo_url|s|^|# DISABLED (no Release file): |" /etc/apt/sources.list
+            if grep -q "$BASE_URL" /etc/apt/sources.list 2>/dev/null; then
+                sed -i "\\|$BASE_URL|s|^|# DISABLED (no Release file): |" /etc/apt/sources.list
                 log_info "Commented out broken repo in /etc/apt/sources.list"
             fi
         done <<< "$BROKEN_REPOS"
